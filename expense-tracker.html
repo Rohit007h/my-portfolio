@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FinTrack Pro Ultimate</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Outfit', 'sans-serif'] },
+          colors: {
+            glass: "rgba(255, 255, 255, 0.05)",
+            glassBorder: "rgba(255, 255, 255, 0.1)",
+            income: "#10b981",
+            expense: "#ef4444"
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      background-color: #000;
+      background-image: 
+        radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
+        radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%), 
+        radial-gradient(at 100% 0%, hsla(339,49%,30%,1) 0, transparent 50%);
+      color: white;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    
+    .glass-panel {
+      background: var(--glass);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--glassBorder);
+      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #0b0b0f; }
+    ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+    
+    .fade-in { animation: fadeIn 0.5s ease-out forwards; opacity: 0; }
+    @keyframes fadeIn { to { opacity: 1; transform: translateY(0); } from { opacity: 0; transform: translateY(10px); } }
+
+    /* Toast Notification Animation */
+    #toast-container { position: fixed; top: 20px; right: 20px; z-index: 50; }
+    .toast {
+      transform: translateX(100%);
+      animation: slideIn 0.3s forwards, fadeOut 0.5s 2.5s forwards;
+    }
+    @keyframes slideIn { to { transform: translateX(0); } }
+    @keyframes fadeOut { to { opacity: 0; transform: translateY(-10px); } }
+  </style>
+</head>
+
+<body class="p-4 md:p-8 flex flex-col items-center">
+
+  <div id="toast-container" class="flex flex-col gap-2"></div>
+
+  <div class="w-full max-w-6xl flex flex-col md:flex-row justify-between items-center mb-8 gap-4 fade-in">
+    <div class="flex items-center gap-4">
+      <a href="index.html" class="flex items-center gap-2 text-gray-400 hover:text-white transition">
+        <i class="fa-solid fa-arrow-left"></i>
+      </a>
+      <h1 class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-600">
+        FinTrack Pro
+      </h1>
+    </div>
+    
+    <div class="flex gap-3">
+        <button onclick="downloadCSV()" class="text-xs bg-gray-800 border border-gray-700 px-4 py-2 rounded hover:bg-gray-700 transition flex items-center gap-2">
+            <i class="fa-solid fa-download"></i> Export CSV
+        </button>
+        <button onclick="clearAll()" class="text-xs text-red-400 border border-red-900/50 px-4 py-2 rounded hover:bg-red-900/30 transition">
+            Reset
+        </button>
+    </div>
+  </div>
+
+  <div class="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <div class="lg:col-span-1 space-y-6 fade-in" style="animation-delay: 0.1s;">
+      
+      <div class="glass-panel p-6 rounded-2xl relative overflow-hidden">
+        <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-pink-500"></div>
+        <p class="text-gray-400 text-sm uppercase tracking-wider">Total Balance</p>
+        <h2 id="balance" class="text-4xl font-bold mt-2 text-white">₹ 0.00</h2>
+        <div class="flex justify-between mt-6 pt-4 border-t border-white/10">
+          <div><p class="text-xs text-gray-400">Income</p><p id="money-plus" class="text-income font-semibold">+₹0.00</p></div>
+          <div><p class="text-xs text-gray-400">Expense</p><p id="money-minus" class="text-expense font-semibold">-₹0.00</p></div>
+        </div>
+      </div>
+
+      <div class="glass-panel p-6 rounded-2xl">
+        <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+          <i class="fa-solid fa-circle-plus text-purple-400"></i> New Entry
+        </h3>
+        <form id="form" class="space-y-4">
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">Description</label>
+            <input type="text" id="text" placeholder="e.g. Server Cost" class="w-full bg-[#0b0b0f] border border-gray-700 text-white rounded-lg p-3 focus:outline-none focus:border-purple-500 transition">
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs text-gray-400 mb-1">Amount</label>
+              <input type="number" id="amount" placeholder="0" class="w-full bg-[#0b0b0f] border border-gray-700 text-white rounded-lg p-3 focus:outline-none focus:border-purple-500 transition">
+            </div>
+            <div>
+              <label class="block text-xs text-gray-400 mb-1">Type</label>
+              <select id="type" class="w-full bg-[#0b0b0f] border border-gray-700 text-white rounded-lg p-3 focus:outline-none focus:border-purple-500 transition">
+                <option value="expense">Expense</option>
+                <option value="income">Income</option>
+              </select>
+            </div>
+          </div>
+          <div>
+             <label class="block text-xs text-gray-400 mb-1">Category</label>
+             <select id="category" class="w-full bg-[#0b0b0f] border border-gray-700 text-white rounded-lg p-3 focus:outline-none focus:border-purple-500 transition">
+               <option value="Food">🍔 Food</option>
+               <option value="Travel">🚕 Travel</option>
+               <option value="Shopping">🛍️ Shopping</option>
+               <option value="Bills">🧾 Bills</option>
+               <option value="Entertainment">🎬 Entertainment</option>
+               <option value="Salary">💰 Salary</option>
+               <option value="Freelance">💻 Freelance</option>
+               <option value="Other">📦 Other</option>
+             </select>
+          </div>
+          <button class="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 text-white font-bold py-3 rounded-lg shadow-lg transform hover:scale-[1.02] transition-all duration-200">
+            Add Transaction
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div class="lg:col-span-2 space-y-6 fade-in" style="animation-delay: 0.2s;">
+      
+      <div class="glass-panel p-6 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-6">
+        <div class="w-full sm:w-1/2">
+            <h3 class="text-lg font-semibold mb-2">Analytics</h3>
+            <p class="text-sm text-gray-400 mb-4">Real-time breakdown of your spending habits.</p>
+        </div>
+        <div class="h-40 w-40 relative">
+            <canvas id="expenseChart"></canvas>
+        </div>
+      </div>
+
+      <div class="glass-panel p-6 rounded-2xl min-h-[450px]">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold">History</h3>
+            <div class="relative">
+                <i class="fa-solid fa-search absolute left-3 top-3 text-gray-500 text-xs"></i>
+                <input type="text" id="search" placeholder="Search..." onkeyup="filterList()" 
+                class="bg-[#0b0b0f] border border-gray-700 text-xs text-white rounded-full pl-8 pr-4 py-2 focus:outline-none focus:border-purple-500 transition w-32 focus:w-48">
+            </div>
+        </div>
+
+        <ul id="list" class="space-y-3"></ul>
+        
+        <div id="empty-state" class="hidden text-center text-gray-500 mt-10">
+            <i class="fa-regular fa-folder-open text-4xl mb-3"></i>
+            <p>No transactions found.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- DOM Elements ---
+    const balance = document.getElementById('balance');
+    const money_plus = document.getElementById('money-plus');
+    const money_minus = document.getElementById('money-minus');
+    const list = document.getElementById('list');
+    const form = document.getElementById('form');
+    const text = document.getElementById('text');
+    const amount = document.getElementById('amount');
+    const typeSelect = document.getElementById('type');
+    const categorySelect = document.getElementById('category');
+    const searchInput = document.getElementById('search');
+    const emptyState = document.getElementById('empty-state');
+    
+    let transactions = JSON.parse(localStorage.getItem('transactions')) || [];
+
+    // --- Chart Setup ---
+    let expenseChart;
+    const ctx = document.getElementById('expenseChart').getContext('2d');
+
+    function initChart() {
+        if (expenseChart) expenseChart.destroy();
+        const categories = {};
+        transactions.filter(t => t.amount < 0).forEach(t => {
+            categories[t.category] = (categories[t.category] || 0) + Math.abs(t.amount);
+        });
+
+        expenseChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(categories),
+                datasets: [{
+                    data: Object.values(categories),
+                    backgroundColor: ['#a855f7', '#ec4899', '#3b82f6', '#10b981', '#f59e0b', '#6366f1'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                cutout: '70%'
+            }
+        });
+    }
+
+    // --- Core Functions ---
+    function generateID() { return Math.floor(Math.random() * 100000000); }
+
+    function showToast(message, type = 'success') {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        const color = type === 'success' ? 'border-green-500 text-green-400' : 'border-red-500 text-red-400';
+        
+        toast.className = `toast glass-panel p-3 rounded-lg border-l-4 ${color} flex items-center gap-3 shadow-2xl min-w-[200px]`;
+        toast.innerHTML = `<i class="fa-solid ${type === 'success' ? 'fa-check' : 'fa-info-circle'}"></i> <span>${message}</span>`;
+        
+        container.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+    }
+
+    function addTransaction(e) {
+      e.preventDefault();
+      if (text.value.trim() === '' || amount.value.trim() === '') {
+        showToast('Please add details', 'error');
+        return;
+      }
+
+      let amtValue = +amount.value;
+      if (typeSelect.value === 'expense') amtValue = -Math.abs(amtValue);
+      else amtValue = Math.abs(amtValue);
+
+      const transaction = {
+        id: generateID(),
+        text: text.value,
+        amount: amtValue,
+        category: categorySelect.value,
+        date: new Date().toLocaleDateString()
+      };
+
+      transactions.push(transaction);
+      addTransactionDOM(transaction);
+      updateValues();
+      updateLocalStorage();
+      initChart();
+      showToast('Transaction Added');
+
+      text.value = '';
+      amount.value = '';
+    }
+
+    function addTransactionDOM(transaction) {
+      const sign = transaction.amount < 0 ? '-' : '+';
+      const colorClass = transaction.amount < 0 ? 'text-expense' : 'text-income';
+      const borderClass = transaction.amount < 0 ? 'border-red-500' : 'border-green-500';
+      const icon = getCategoryIcon(transaction.category);
+
+      const item = document.createElement('li');
+      // Added 'transaction-item' class for search filtering
+      item.className = `transaction-item flex justify-between items-center bg-[#0b0b0f] p-4 rounded-lg border-l-4 ${borderClass} border-t border-r border-b border-gray-800 hover:bg-[#15151e] transition group`;
+      
+      item.innerHTML = `
+        <div class="flex items-center gap-4">
+            <div class="h-10 w-10 rounded-full bg-gray-800 flex items-center justify-center text-lg shadow-inner">
+                ${icon}
+            </div>
+            <div>
+                <p class="font-semibold text-sm text-gray-200">${transaction.text}</p>
+                <p class="text-xs text-gray-500">${transaction.category} • ${transaction.date}</p>
+            </div>
+        </div>
+        <div class="text-right">
+            <span class="${colorClass} font-bold block text-sm">${sign}₹${Math.abs(transaction.amount)}</span>
+            <button class="opacity-0 group-hover:opacity-100 text-[10px] text-red-400 uppercase tracking-widest mt-1 hover:text-red-300 transition" onclick="removeTransaction(${transaction.id})">
+                Delete
+            </button>
+        </div>
+      `;
+      list.prepend(item);
+    }
+
+    function getCategoryIcon(category) {
+        const map = { 'Food': '🍔', 'Travel': '🚕', 'Shopping': '🛍️', 'Bills': '🧾', 'Entertainment': '🎬', 'Salary': '💰', 'Freelance': '💻', 'Other': '📦' };
+        return map[category] || '📦';
+    }
+
+    function updateValues() {
+      const amounts = transactions.map(t => t.amount);
+      const total = amounts.reduce((acc, item) => (acc += item), 0).toFixed(2);
+      const income = amounts.filter(item => item > 0).reduce((acc, item) => (acc += item), 0).toFixed(2);
+      const expense = (amounts.filter(item => item < 0).reduce((acc, item) => (acc += item), 0) * -1).toFixed(2);
+
+      balance.innerText = `₹${total}`;
+      money_plus.innerText = `+₹${income}`;
+      money_minus.innerText = `-₹${expense}`;
+      
+      checkEmpty();
+    }
+
+    function removeTransaction(id) {
+      transactions = transactions.filter(t => t.id !== id);
+      updateLocalStorage();
+      init();
+      showToast('Transaction Deleted', 'error');
+    }
+
+    function updateLocalStorage() {
+      localStorage.setItem('transactions', JSON.stringify(transactions));
+    }
+
+    function clearAll() {
+        if(confirm('Delete all data?')) {
+            transactions = [];
+            updateLocalStorage();
+            init();
+            showToast('All Data Cleared', 'error');
+        }
+    }
+
+    // --- Search Function ---
+    function filterList() {
+        const term = searchInput.value.toLowerCase();
+        const items = document.querySelectorAll('.transaction-item');
+        let hasVisible = false;
+
+        items.forEach(item => {
+            const text = item.innerText.toLowerCase();
+            if(text.includes(term)) {
+                item.style.display = 'flex';
+                hasVisible = true;
+            } else {
+                item.style.display = 'none';
+            }
+        });
+
+        // Toggle empty state based on search results
+        if(!hasVisible && transactions.length > 0) emptyState.classList.remove('hidden');
+        else if(transactions.length > 0) emptyState.classList.add('hidden');
+    }
+
+    function checkEmpty() {
+        if(transactions.length === 0) emptyState.classList.remove('hidden');
+        else emptyState.classList.add('hidden');
+    }
+
+    // --- Export CSV Function ---
+    function downloadCSV() {
+        if(transactions.length === 0) {
+            showToast('No data to export', 'error');
+            return;
+        }
+        
+        // CSV Header
+        let csvContent = "data:text/csv;charset=utf-8,ID,Date,Description,Category,Type,Amount\n";
+        
+        // CSV Rows
+        transactions.forEach(t => {
+            const type = t.amount > 0 ? "Income" : "Expense";
+            const row = `${t.id},${t.date},"${t.text}",${t.category},${type},${t.amount}`;
+            csvContent += row + "\n";
+        });
+
+        // Create Download Link
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "transactions.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        showToast('CSV Downloaded');
+    }
+
+    function init() {
+      list.innerHTML = '';
+      transactions.forEach(addTransactionDOM);
+      updateValues();
+      initChart();
+    }
+
+    init();
+    form.addEventListener('submit', addTransaction);
+  </script>
+</body>
+</html>
